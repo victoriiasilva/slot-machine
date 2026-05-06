@@ -47,23 +47,17 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def registrar_en_sheets(nombre, email, premio):
     try:
-        # Creamos la nueva fila
+        # Ahora con Service Account esto no fallará
+        existentes = conn.read(worksheet="Sheet1")
         nueva_fila = pd.DataFrame([{
-            "Nombre": nombre,
-            "Email": email,
-            "Premio": premio,
-            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "Nombre": nombre, "Email": email, 
+            "Premio": premio, "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }])
-        
-        # Usamos el método append para añadir la fila al final de Sheet1
-        conn.create(data=nueva_fila, worksheet="Sheet1") 
-        # Nota: si conn.create no te funciona por la versión, 
-        # podés seguir usando conn.update pero asegurate de que 
-        # el DataFrame tenga datos válidos.
-        
-        st.toast("✅ ¡Datos guardados con éxito!")
+        actualizado = pd.concat([existentes, nueva_fila], ignore_index=True)
+        conn.update(worksheet="Sheet1", data=actualizado)
+        st.toast("✅ ¡Datos guardados!")
     except Exception as e:
-        st.error(f"Error al guardar datos: {e}")
+        st.error(f"Error: {e}")
 
 # 4. CABECERA
 try:
