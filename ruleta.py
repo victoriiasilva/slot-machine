@@ -47,7 +47,16 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def registrar_en_sheets(nombre, email, premio):
     try:
-        # Creamos el DataFrame con el nuevo registro
+        # 1. LIMPIAR CACHÉ: Esto obliga a la app a mirar el Excel real cada vez
+        st.cache_data.clear()
+        
+        # 2. Leer los datos actuales (ahora sí vendrán actualizados)
+        try:
+            df_existente = conn.read(worksheet="Sheet1")
+        except:
+            df_existente = pd.DataFrame(columns=["Nombre", "Email", "Premio", "Fecha"])
+
+        # 3. Crear el nuevo registro
         nueva_fila = pd.DataFrame([{
             "Nombre": nombre,
             "Email": email,
@@ -55,21 +64,17 @@ def registrar_en_sheets(nombre, email, premio):
             "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }])
 
-        # Usamos el método 'create' con 'spreadsheet' para forzar el anexo (append)
-        # Esto buscará la primera fila vacía después de tus datos actuales
-        conn.create(data=nueva_fila, worksheet="Sheet1")
-        
-        st.toast("✅ ¡Datos guardados!")
-    except Exception as e:
-        # Si 'create' no está disponible en tu versión, usamos esta alternativa:
-        try:
-            existentes = conn.read(worksheet="Sheet1")
-            actualizado = pd.concat([existentes, nueva_fila], ignore_index=True)
-            conn.update(worksheet="Sheet1", data=actualizado)
-            st.toast("✅ ¡Datos actualizados!")
-        except Exception as e2:
-            st.error(f"Error crítico: {e2}")
+        # 4. Unir todo
+        # Filtramos filas vacías por seguridad antes de unir
+        df_existente = df_existente.dropna(how='all')
+        df_actualizado = pd.concat([df_existente, nueva_fila], ignore_index=True)
 
+        # 5. Subir a Google
+        conn.update(worksheet="Sheet1", data=df_actualizado)
+        
+        st.toast("✅ ¡Registro exitoso!")
+    except Exception as e:
+        st.error(f"Error al guardar: {e}")
 # 4. CABECERA
 try:
     st.image("logo.png", width=200)
