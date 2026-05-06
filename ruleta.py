@@ -1,80 +1,90 @@
 import streamlit as st
 import random
 import time
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
+from datetime import datetime
 
-# Configuración visual de la página
+# 1. CONFIGURACIÓN DE PÁGINA (Debe ser lo primero)
 st.set_page_config(page_title="Slot Machine Personalizada", layout="centered")
 
-# --- CONFIGURACIÓN DE MARCA ---
-COLOR_MARCA = "#8cb744"  # Tu verde específico
+# 2. CONFIGURACIÓN DE MARCA Y ESTILOS
+COLOR_MARCA = "#8cb744" 
 
 st.markdown(f"""
     <style>
-    /* Fondo de la página y tipografía */
-    .stApp {{
-        background-color: #f9fbf7;
-    }}
-
-    /* Botón personalizado con tu verde */
+    .stApp {{ background-color: #f9fbf7; }}
+    
+    /* Botón Girar */
     div.stButton > button:first-child {{
         background-color: {COLOR_MARCA};
-        color: white;
-        border-radius: 10px;
-        border: none;
-        font-size: 20px;
-        font-weight: bold;
-        height: 3em;
-        transition: 0.3s;
+        color: white; border-radius: 10px; border: none;
+        font-size: 20px; font-weight: bold; height: 3em; transition: 0.3s;
     }}
+    div.stButton > button:hover {{ background-color: #7aa33b; border: none; }}
 
-    div.stButton > button:hover {{
-        background-color: #7aa33b; /* Un verde un poco más oscuro para el hover */
-        color: white;
-        border: none;
-    }}
-
-    /* Carrete con bordes de tu marca */
+    /* Estilo de los Carretes */
     .reel {{
         background-color: #ffffff;
         border: 5px solid {COLOR_MARCA};
         border-radius: 15px;
         padding: 40px 10px;
         height: 150px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        font-size: 22px;
-        font-weight: bold;
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
-        color: #333;
+        display: flex; align-items: center; justify-content: center;
+        text-align: center; font-size: 25px; font-weight: bold;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.1); color: #333;
     }}
 
     .win-banner {{
-        text-align: center;
-        font-size: 40px;
-        color: {COLOR_MARCA};
-        font-weight: bold;
-        margin-top: 20px;
+        text-align: center; font-size: 40px; color: {COLOR_MARCA};
+        font-weight: bold; margin-top: 20px;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- CABECERA CON LOGO ---
-# Intentamos cargar el logo. Si no existe, solo muestra el título.
+# 3. CONEXIÓN A GOOGLE SHEETS
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+def registrar_en_sheets(nombre, email, premio):
+    try:
+        existentes = conn.read(worksheet="Sheet1")
+        nueva_fila = pd.DataFrame([{
+            "Nombre": nombre,
+            "Email": email,
+            "Premio": premio,
+            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }])
+        actualizado = pd.concat([existentes, nueva_fila], ignore_index=True)
+        conn.update(worksheet="Sheet1", data=actualizado)
+    except Exception as e:
+        st.error(f"Error al guardar datos: {e}")
+
+# 4. CABECERA
 try:
-    st.image("logo.png", width=200) # Ajustá el ancho según tu logo
+    st.image("logo.png", width=200)
 except:
     st.title("🎰 Bienvenido a nuestro Stand")
 
-st.write("¡Participá por beneficios exclusivos usando nuestra ruleta!")
+st.write("¡Ingresá tus datos para probar suerte en nuestra ruleta!")
 
-# --- LÓGICA DE JUEGO ---
+# 5. FORMULARIO DE CAPTURA
+with st.container():
+    col_n, col_e = st.columns(2)
+    with col_n:
+        nombre_user = st.text_input("Nombre")
+    with col_e:
+        email_user = st.text_input("Email")
+
+puedo_jugar = nombre_user != "" and "@" in email_user
+
+# 6. LÓGICA DE JUEGO
 premios = ["Regalo sorpresa", "Merch", "5% OFF", "10% OFF", "15% OFF"]
 pesos = [5, 10, 25, 20, 10]
 probabilidad_ganar = 0.3
 
-if st.button("¡PROBAR SUERTE!", use_container_width=True):
+# Botón de jugar (Se deshabilita si no completan los datos)
+if st.button("¡PROBAR SUERTE!", use_container_width=True, disabled=not puedo_jugar):
+    
     esta_ganando = random.random() < probabilidad_ganar
 
     if esta_ganando:
@@ -86,6 +96,7 @@ if st.button("¡PROBAR SUERTE!", use_container_width=True):
             if not (r1 == r2 == r3): break
         resultado = None
 
+    # Animación de carretes
     col1, col2, col3 = st.columns(3)
     with col1: reel1 = st.empty()
     with col2: reel2 = st.empty()
@@ -102,9 +113,16 @@ if st.button("¡PROBAR SUERTE!", use_container_width=True):
         time.sleep(0.04 + (t * 0.003))
 
     st.divider()
+    
+    # 7. RESULTADOS Y GUARDADO
+    texto_final = resultado if resultado else "Siga participando"
+    
+    # Guardamos en Google Sheets
+    registrar_en_sheets(nombre_user, email_user, texto_final)
+
     if esta_ganando:
         st.balloons()
         st.markdown(f'<div class="win-banner">✨ ¡FELICITACIONES! ✨</div>', unsafe_allow_html=True)
         st.markdown(f"<h3 style='text-align: center;'>Ganaste: {resultado}</h3>", unsafe_allow_html=True)
     else:
-        st.markdown('<p style="text-align: center; color: #666;">❌ No hubo coincidencia. ¡Seguí participando!</p>', unsafe_allow_html=True)
+        st.markdown('<p style="text-align: center; font-size:20px; color: #666;">❌ No hubo coincidencia. ¡Seguí participando!</p>', unsafe_allow_html=True)
