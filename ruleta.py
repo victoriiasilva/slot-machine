@@ -47,14 +47,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def registrar_en_sheets(nombre, email, premio):
     try:
-        # 1. Leemos los datos actuales
-        # Usamos un try/except por si la hoja está totalmente vacía
-        try:
-            df_existente = conn.read(worksheet="Sheet1")
-        except:
-            df_existente = pd.DataFrame(columns=["Nombre", "Email", "Premio", "Fecha"])
-
-        # 2. Creamos la nueva fila
+        # Creamos el DataFrame con el nuevo registro
         nueva_fila = pd.DataFrame([{
             "Nombre": nombre,
             "Email": email,
@@ -62,16 +55,20 @@ def registrar_en_sheets(nombre, email, premio):
             "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }])
 
-        # 3. Concatenamos: los existentes PRIMERO, la nueva fila DESPUÉS
-        # Aseguramos que no haya filas vacías que rompan el orden
-        df_actualizado = pd.concat([df_existente, nueva_fila], ignore_index=True).dropna(how='all')
-
-        # 4. Actualizamos TODA la hoja con el nuevo DataFrame completo
-        conn.update(worksheet="Sheet1", data=df_actualizado)
+        # Usamos el método 'create' con 'spreadsheet' para forzar el anexo (append)
+        # Esto buscará la primera fila vacía después de tus datos actuales
+        conn.create(data=nueva_fila, worksheet="Sheet1")
         
-        st.toast("✅ ¡Datos guardados correctamente!")
+        st.toast("✅ ¡Datos guardados!")
     except Exception as e:
-        st.error(f"Error al guardar: {e}")
+        # Si 'create' no está disponible en tu versión, usamos esta alternativa:
+        try:
+            existentes = conn.read(worksheet="Sheet1")
+            actualizado = pd.concat([existentes, nueva_fila], ignore_index=True)
+            conn.update(worksheet="Sheet1", data=actualizado)
+            st.toast("✅ ¡Datos actualizados!")
+        except Exception as e2:
+            st.error(f"Error crítico: {e2}")
 
 # 4. CABECERA
 try:
