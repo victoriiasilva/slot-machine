@@ -47,17 +47,31 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def registrar_en_sheets(nombre, email, premio):
     try:
-        # Ahora con Service Account esto no fallará
-        existentes = conn.read(worksheet="Sheet1")
+        # 1. Leemos los datos actuales
+        # Usamos un try/except por si la hoja está totalmente vacía
+        try:
+            df_existente = conn.read(worksheet="Sheet1")
+        except:
+            df_existente = pd.DataFrame(columns=["Nombre", "Email", "Premio", "Fecha"])
+
+        # 2. Creamos la nueva fila
         nueva_fila = pd.DataFrame([{
-            "Nombre": nombre, "Email": email, 
-            "Premio": premio, "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "Nombre": nombre,
+            "Email": email,
+            "Premio": premio,
+            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }])
-        actualizado = pd.concat([existentes, nueva_fila], ignore_index=True)
-        conn.update(worksheet="Sheet1", data=actualizado)
-        st.toast("✅ ¡Datos guardados!")
+
+        # 3. Concatenamos: los existentes PRIMERO, la nueva fila DESPUÉS
+        # Aseguramos que no haya filas vacías que rompan el orden
+        df_actualizado = pd.concat([df_existente, nueva_fila], ignore_index=True).dropna(how='all')
+
+        # 4. Actualizamos TODA la hoja con el nuevo DataFrame completo
+        conn.update(worksheet="Sheet1", data=df_actualizado)
+        
+        st.toast("✅ ¡Datos guardados correctamente!")
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Error al guardar: {e}")
 
 # 4. CABECERA
 try:
