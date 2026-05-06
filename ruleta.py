@@ -77,11 +77,16 @@ def registrar_en_sheets(nombre, email, premio):
         st.error(f"Error al guardar: {e}")
 # 4. CABECERA
 try:
-    st.image("logo.png", width=200)
+    # Creamos 3 columnas. La del medio es más ancha para el logo.
+    col_izq, col_logo, col_der = st.columns([1, 3, 1]) 
+    
+    with col_logo:
+        # Aumentamos el width de 200 a 400 (o el que prefieras)
+        st.image("logo.png", width=450, use_container_width=False) 
 except:
     st.title("🎰 Bienvenido a nuestro Stand")
 
-st.write("¡Ingresá tus datos para probar suerte en nuestra ruleta!")
+st.markdown("<br>", unsafe_allow_html=True) # Un pequeño espacio extra abajo del logo
 
 # 5. FORMULARIO DE CAPTURA
 with st.container():
